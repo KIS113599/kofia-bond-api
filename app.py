@@ -17,24 +17,16 @@ def korea_bond_yield():
 
     try:
         response = requests.get(url, headers=headers)
-        response.encoding = 'euc-kr'  # 한글 인코딩
+        response.encoding = 'euc-kr'
         csv_text = response.text
 
         f = io.StringIO(csv_text)
         reader = csv.reader(f)
-        data = []
+        all_rows = list(reader)
 
-        for row in reader:
-            try:
-                date = datetime.strptime(row[0].strip(), "%Y.%m.%d").date()
-                y10 = float(row[9].replace(",", "").strip()) if row[9].strip() else None
-                y30 = float(row[10].replace(",", "").strip()) if row[10].strip() else None
-                if y10 and y30:
-                    data.append({"date": date.isoformat(), "10Y": y10, "30Y": y30})
-            except:
-                continue
+        # ✅ 처음 5줄만 반환하여 구조 확인
+        return jsonify(all_rows[:5])
 
-        return jsonify(data[:254])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
