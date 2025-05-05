@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 import requests
-from bs4 import BeautifulSoup
+import csv
+import io
 from datetime import datetime
 import os
 
@@ -8,34 +9,34 @@ app = Flask(__name__)
 
 @app.route("/korea-bond-yield")
 def korea_bond_yield():
-    url = "https://www.kofiabond.or.kr/asp/servlet/BondISub?cmd=forwardStats&bnd_clss_cd=005"
+    url = "https://www.kofiabond.or.kr/statistics/download?gubun=yield&bnd_clss_cd=005"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://www.kofiabond.or.kr/"
     }
-    response = requests.get(url, headers=headers)
-    soup = BeautifulSoup(response.content, "html.parser")
 
-    table = soup.find("table", {"class": "table_style01"})
-    if not table:
-        return jsonify({"error": "No table found. KOFIA may have changed layout."}), 500
+    try:
+        response = requests.get(url, headers=headers)
+        response.encoding = 'euc-kr'  # 한글 인코딩
+        csv_text = response.text
 
-    rows = table.find_all("tr")
-    data = []
+        f = io.StringIO(csv_text)
+        reader = csv.reader(f)
+        data = []
 
-    for row in rows[2:]:
-        cols = row.find_all("td")
-        if len(cols) >= 11:
-            date_str = cols[0].text.strip().replace(".", "-")
+        for row in reader:
             try:
-                date = datetime.strptime(date_str, "%Y-%m-%d").date()
-                y10 = float(cols[9].text.strip()) if cols[9].text.strip() else None
-                y30 = float(cols[10].text.strip()) if cols[10].text.strip() else None
+                date = datetime.strptime(row[0].strip(), "%Y.%m.%d").date()
+                y10 = float(row[9].replace(",", "").strip()) if row[9].strip() else None
+                y30 = float(row[10].replace(",", "").strip()) if row[10].strip() else None
                 if y10 and y30:
                     data.append({"date": date.isoformat(), "10Y": y10, "30Y": y30})
             except:
                 continue
 
-    return jsonify(data[:254])  # 최신 254개만 반환
+        return jsonify(data[:254])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
