@@ -16,8 +16,10 @@ def korea_bond_yield():
     soup = BeautifulSoup(response.content, "html.parser")
 
     table = soup.find("table", {"class": "table_style01"})
-    rows = table.find_all("tr")
+    if not table:
+        return jsonify({"error": "No table found. KOFIA may have changed layout."}), 500
 
+    rows = table.find_all("tr")
     data = []
 
     for row in rows[2:]:
